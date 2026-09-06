@@ -1,7 +1,7 @@
 -- Based on the treasure pool addon.
 
 addon.name = 'lootz'
-addon.author = 'weeone'
+addon.author = 'weeone, Ashita 4.3 imGUI fix by Xua'
 addon.version = '0.1'
 
 require 'common'
@@ -25,6 +25,18 @@ local defaultConfig = T{
 	};
 
 local config = settings.load(defaultConfig);
+
+-- was previously referenced as an undefined global; give it a real default
+local windowSize = 400;
+
+-- Some Ashita v4 forks/builds don't expose imgui.SetWindowFontScale.
+-- Guard it so a missing binding degrades gracefully instead of crashing
+-- the whole addon out from under the window.
+local function safeSetFontScale(scale)
+	if imgui.SetWindowFontScale ~= nil then
+		imgui.SetWindowFontScale(scale)
+	end
+end
 
 --local tsTable = {}
 -- library of colors
@@ -66,7 +78,8 @@ ashita.events.register('d3d_present', 'present_cb', function ()
 	if (player == nil) then -- when zoning
 		return;
 	end
-	if string.match(tools.GetMenuName(), 'map') or string.match(tools.GetMenuName(), 'fulllog') then -- looking at map or log
+	local menuName = tools.GetMenuName();
+	if string.match(menuName, 'map') or string.match(menuName, 'fulllog') then -- looking at map or log
 		return; 
 	end
 	local pool = tools.getTreasurePool()
@@ -99,15 +112,11 @@ ashita.events.register('d3d_present', 'present_cb', function ()
 	-- treasure pool window
 	if (table.getn(pool) > 0 and config.showPool) then
 		imgui.SetNextWindowBgAlpha(0.75);
-		imgui.SetNextWindowSize({ windowSize, -1, }, ImGuiCond_Always);
+		imgui.SetNextWindowSize({ windowSize, -1 }, ImGuiCond_Always);
 		
-		if (imgui.Begin('poolWindow', true, bit.bor(ImGuiWindowFlags_NoDecoration))) then
-
-			-- testing
-			--imgui.Text(tostring(table.getn(pool)) .. ' ' .. tostring(config.showSummary) .. ' ' .. tostring(config.showPool))
-
-			imgui.SetWindowFontScale(config.scale)
-			-- table header
+		local beginResult = imgui.Begin('poolWindow', true, bit.bor(ImGuiWindowFlags_NoDecoration));
+		if (beginResult) then
+			safeSetFontScale(config.scale)
 			if table.getn(pool) > 0 then
 				imgui.Text('Loots: ')
 				if lotSep ~= '' then -- someone rolled
@@ -188,13 +197,14 @@ ashita.events.register('d3d_present', 'present_cb', function ()
 			
 			end;
 		end;
+		imgui.End();
 	end;	
 	-- history window
 	if config.showSummary and table.getn(tools.dropList) > 0 then
 		imgui.SetNextWindowBgAlpha(0.75);
-		imgui.SetNextWindowSize({ windowSize, -1, }, ImGuiCond_Always);
+		imgui.SetNextWindowSize({ windowSize, -1 }, ImGuiCond_Always);
 		if (imgui.Begin('poolHistoryWindow', true, bit.bor(ImGuiWindowFlags_NoDecoration))) then
-			imgui.SetWindowFontScale(config.scale)
+			safeSetFontScale(config.scale)
 			-- summary
 			longestSummary = string.len(longestItem) > string.len(longestSummary) and longestItem or longestSummary; 
 				imgui.Separator();
@@ -227,6 +237,7 @@ ashita.events.register('d3d_present', 'present_cb', function ()
 				commonCount = 0;
 			end;
 		end
+		imgui.End();
 	end
 	-- reset variables for next check.
 	longestItem = 'lootz: ';

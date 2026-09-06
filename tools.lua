@@ -142,12 +142,35 @@ tools.getTimeRemaining = function(item)
 		return -1
 	end
 end
+-- Different Ashita builds (and private-server forks) have exposed the treasure
+-- pool accessor under different names over time. Detect whichever one this
+-- client actually has once and cache it, instead of hardcoding a single name.
+tools.treasureMethod = nil;
+tools.getTreasureItemRaw = function(inventory, i)
+	if tools.treasureMethod == nil then
+		local candidates = { 'GetTreasureItem', 'GetTreasurePoolItem', 'GetTreasurePool', 'GetTreasure' };
+		for _, name in ipairs(candidates) do
+			if type(inventory[name]) == 'function' then
+				tools.treasureMethod = name;
+				break;
+			end
+		end
+		if tools.treasureMethod == nil then
+			tools.treasureMethod = false;
+		end
+	end
+	if tools.treasureMethod then
+		return inventory[tools.treasureMethod](inventory, i);
+	end
+	return nil;
+end;
+
 tools.getTreasurePool = function()
 	local pool = {};
 	local resources = AshitaCore:GetResourceManager();
 	local inventory = AshitaCore:GetMemoryManager():GetInventory()
 	for i = 0, 9 do
-		local titem = inventory:GetTreasurePoolItem(i);
+		local titem = tools.getTreasureItemRaw(inventory, i);
 		if titem ~= nil and titem.ItemId ~= nil then
 			local rItem = resources:GetItemById(titem.ItemId)
 			if (rItem ~= nil) then
